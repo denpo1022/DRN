@@ -1,4 +1,5 @@
-# After put all the frames of the video into Set5/HR/ , run this .sh
+# After put all the frames of the video into srdata/benchmark/Set5/HR/
+# then run this .sh
 
 # rm ./srdata/benchmark/Set5/HR/*
 rm -f ./srdata/benchmark/Set5/LR_bicubic/X2/*
