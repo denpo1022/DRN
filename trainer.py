@@ -4,7 +4,7 @@ from decimal import Decimal
 from tqdm import tqdm
 
 
-class Trainer():
+class Trainer:
     def __init__(self, opt, loader, my_model, my_loss, ckp):
         self.opt = opt
         self.scale = opt.scale
@@ -25,7 +25,7 @@ class Trainer():
         lr = self.scheduler.get_lr()[0]
 
         self.ckp.write_log(
-            '[Epoch {}]\tLearning rate: {:.2e}'.format(epoch, Decimal(lr))
+            "[Epoch {}]\tLearning rate: {:.2e}".format(epoch, Decimal(lr))
         )
         self.loss.start_log()
         self.model.train()
@@ -34,7 +34,7 @@ class Trainer():
             lr, hr = self.prepare(lr, hr)
             timer_data.hold()
             timer_model.tic()
-            
+
             self.optimizer.zero_grad()
 
             for i in range(len(self.dual_optimizers)):
@@ -59,26 +59,27 @@ class Trainer():
 
             # compute total loss
             loss = loss_primary + self.opt.dual_weight * loss_dual
-            
+
             if loss.item() < self.opt.skip_threshold * self.error_last:
-                loss.backward()                
+                loss.backward()
                 self.optimizer.step()
                 for i in range(len(self.dual_optimizers)):
                     self.dual_optimizers[i].step()
             else:
-                print('Skip this batch {}! (Loss: {})'.format(
-                    batch + 1, loss.item()
-                ))
-                
+                print("Skip this batch {}! (Loss: {})".format(batch + 1, loss.item()))
+
             timer_model.hold()
 
             if (batch + 1) % self.opt.print_every == 0:
-                self.ckp.write_log('[{}/{}]\t{}\t{:.1f}+{:.1f}s'.format(
-                    (batch + 1) * self.opt.batch_size,
-                    len(self.loader_train.dataset),
-                    self.loss.display_loss(batch),
-                    timer_model.release(),
-                    timer_data.release()))
+                self.ckp.write_log(
+                    "[{}/{}]\t{}\t{:.1f}+{:.1f}s".format(
+                        (batch + 1) * self.opt.batch_size,
+                        len(self.loader_train.dataset),
+                        self.loss.display_loss(batch),
+                        timer_model.release(),
+                        timer_data.release(),
+                    )
+                )
 
             timer_data.tic()
 
@@ -88,7 +89,7 @@ class Trainer():
 
     def test(self):
         epoch = self.scheduler.last_epoch
-        self.ckp.write_log('\nEvaluation:')
+        self.ckp.write_log("\nEvaluation:")
         self.ckp.add_log(torch.zeros(1, 1))
         self.model.eval()
 
@@ -100,21 +101,25 @@ class Trainer():
                 tqdm_test = tqdm(self.loader_test, ncols=80)
                 for _, (lr, hr, filename) in enumerate(tqdm_test):
                     filename = filename[0]
-                    no_eval = (hr.nelement() == 1)
+                    no_eval = hr.nelement() == 1
                     if not no_eval:
                         lr, hr = self.prepare(lr, hr)
                     else:
-                        lr, = self.prepare(lr)
+                        lr = self.prepare(lr)
 
                     sr = self.model(lr[0])
-                    if isinstance(sr, list): sr = sr[-1]
+                    if isinstance(sr, list):
+                        sr = sr[-1]
 
                     sr = utility.quantize(sr, self.opt.rgb_range)
 
                     if not no_eval:
                         eval_psnr += utility.calc_psnr(
-                            sr, hr, s, self.opt.rgb_range,
-                            benchmark=self.loader_test.dataset.benchmark
+                            sr,
+                            hr,
+                            s,
+                            self.opt.rgb_range,
+                            benchmark=self.loader_test.dataset.benchmark,
                         )
 
                     # save test results
@@ -124,16 +129,17 @@ class Trainer():
                 self.ckp.log[-1, si] = eval_psnr / len(self.loader_test)
                 best = self.ckp.log.max(0)
                 self.ckp.write_log(
-                    '[{} x{}]\tPSNR: {:.2f} (Best: {:.2f} @epoch {})'.format(
-                        self.opt.data_test, s,
+                    "[{} x{}]\tPSNR: {:.2f} (Best: {:.2f} @epoch {})".format(
+                        self.opt.data_test,
+                        s,
                         self.ckp.log[-1, si],
                         best[0][si],
-                        best[1][si] + 1
+                        best[1][si] + 1,
                     )
                 )
 
         self.ckp.write_log(
-            'Total time: {:.2f}s\n'.format(timer_test.toc()), refresh=True
+            "Total time: {:.2f}s\n".format(timer_test.toc()), refresh=True
         )
         if not self.opt.test_only:
             self.ckp.save(self, epoch, is_best=(best[1][0] + 1 == epoch))
@@ -144,11 +150,11 @@ class Trainer():
             self.dual_scheduler[i].step()
 
     def prepare(self, *args):
-        device = torch.device('cpu' if self.opt.cpu else 'cuda')
+        device = torch.device("cpu" if self.opt.cpu else "cuda")
 
-        if len(args)>1:
+        if len(args) > 1:
             return [a.to(device) for a in args[0]], args[-1].to(device)
-        return [a.to(device) for a in args[0]], 
+        return ([a.to(device) for a in args[0]],)
 
     def terminate(self):
         if self.opt.test_only:
